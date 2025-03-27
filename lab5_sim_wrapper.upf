@@ -1,0 +1,11 @@
+upf_version 2.1
+
+set_design_top tb_lab5 -testbench
+load_upf lab5.upf -scope dut_lab5
+
+set all_supply_nets {DVDD_CORE DVDD_COREPG DGND}
+foreach x $all_supply_nets {
+  create_supply_port -direction inout $x
+  create_supply_net $x
+  connect_supply_net $x -ports $x
+}

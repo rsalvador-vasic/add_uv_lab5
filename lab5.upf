@@ -1,0 +1,95 @@
+upf_version 2.1
+
+set all_supply_nets {DVDD_CORE DVDD_COREPG DGND}
+
+############################################################################################
+# Create Supply Ports, Supply Nets, and connect them
+############################################################################################
+
+foreach x $all_supply_nets {
+  create_supply_port -direction inout $x
+  create_supply_net $x
+  connect_supply_net $x -ports $x
+}
+############################################################################################
+# Create Supply Sets
+############################################################################################
+
+create_supply_set SS_DVDD_CORE   -function {power DVDD_CORE}   -function {ground DGND} -function {nwell DVDD_CORE} -function {pwell DGND}
+create_supply_set SS_DVDD_COREPG -function {power DVDD_COREPG} -function {ground DGND} -function {nwell DVDD_CORE} -function {pwell DGND}
+
+############################################################################################
+# Create Power Domains associated to the implemented power grids in floorplan
+############################################################################################
+
+create_power_domain PD_DVDD_CORE -include_scope \
+                                 -supply {primary SS_DVDD_CORE} \
+                                 -elements "."
+
+create_power_domain PD_DVDD_COREPG -supply {primary SS_DVDD_COREPG} \
+                                   -elements {u_c_counter_pg} \
+                                   -supply {default_retention SS_DVDD_CORE} \
+                                   -supply {default_isolation SS_DVDD_CORE} \
+                                   -available_supplies {SS_DVDD_COREPG SS_DVDD_CORE}
+
+############################################################################################
+# Define Power States for all Supply Sets
+############################################################################################
+
+# SS_DVDD_CORE is Always-On
+add_power_state SS_DVDD_CORE   -supply -state ON  {-supply_expr {power == `{FULL_ON 0.9} && ground == `{FULL_ON 0.0}} -simstate NORMAL}
+
+# SS_DVDD_COREPG can be On or Off
+add_power_state SS_DVDD_COREPG -supply -state ON  {-supply_expr {power == `{FULL_ON 0.9} && ground == `{FULL_ON 0.0}} -simstate NORMAL}
+add_power_state SS_DVDD_COREPG -supply -state OFF {-supply_expr {power == `{OFF}         && ground == `{FULL_ON 0.0}} -simstate CORRUPT} -update
+
+# System Level Power States
+
+add_power_state PD_DVDD_CORE -domain \
+                             -state ALL_ON  " -logic_expr {SS_DVDD_CORE==ON && SS_DVDD_COREPG==ON}" \
+                             -state ALL_OFF " -logic_expr {SS_DVDD_CORE==ON && SS_DVDD_COREPG==OFF}"
+
+
+############################################################################################
+# Isolation Strategies
+############################################################################################
+
+# Iso to 0 from SS_DVDD_COREPG to SS_DVDD_CORE. Isolation cells placed in AON domain
+set_isolation ISO_0_PG_TO_AON \
+                -domain               PD_DVDD_CORE \
+                -applies_to           inputs \
+                -isolation_signal     isolate \
+                -isolation_sense      high \
+                -clamp_value          0 \
+                -location             self \
+                -isolation_supply_set SS_DVDD_CORE \
+                -source               SS_DVDD_COREPG \
+                -sink                 SS_DVDD_CORE \
+                -exclude_elements     ""
+
+############################################################################################
+# Retention Strategies
+############################################################################################
+
+set_retention DVDD_COREPG_RET \
+                -domain               PD_DVDD_COREPG \
+                -retention_supply_set SS_DVDD_CORE \
+                -save_signal          {retain posedge} \
+                -restore_signal       {retain negedge} \
+                -elements             "u_c_counter_pg" \
+                -exclude_elements     ""
+
+
+
+
+set_port_attributes -elements {.} \
+                    -receiver_supply SS_DVDD_CORE \
+                    -driver_supply   SS_DVDD_CORE
+
+
+
+
+
+
+
+
