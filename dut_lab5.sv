@@ -28,7 +28,7 @@ always_comb c_rst_n = rst_n && pg_rst_n;  // Reset to u_c_counter_pg
 
 /////////////////////////////////////////////////////////////////////////////////
 //
-//  Start of Lab4
+//  Start of Lab 5
 //
 
 // Remove and connect as per Lab5
